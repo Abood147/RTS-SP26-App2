@@ -13,17 +13,22 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 // TODO1: ADD IN additional INCLUDES BELOW
-
+#include "driver/gpio.h"
+#include "driver/adc.h"
+#include "math.h"
 // TODO1: ADD IN additional INCLUDES ABOVE
 
 #define LED_PIN GPIO_NUM_2  // Using GPIO2 for the LED
 
 // TODO2: ADD IN LDR_PIN to gpio pin 32
+#define LDR_PIN GPIO_NUM_1
 
 // TODO3: ADD IN LDR_ADC_CHANNEL -- if you used gpio pin 32 it should map to ADC1_CHANNEL4
+#define LDR_ADC_CHANNEL ADC1_CHANNEL_0
 
 // TODO99: Consider Adding AVG_WINDOW and SENSOR_THRESHOLD as global defines
-
+#define AVG_WINDOW 10
+#define SENSOR_THRESHOLD 500
 
 //TODO9: Adjust Task to blink an LED at 1 Hz (1000 ms period: 500 ms ON, 500 ms OFF);
 //Consider supressing the output
@@ -33,11 +38,11 @@ void led_task(void *pvParameters) {
 
     while (1) {
         currentTime = pdTICKS_TO_MS( xTaskGetTickCount() );
-        gpio_set_level(LED_PIN, 1);  //TODO: Set LED pin high or low based on led_status flag;
-        led_status = led_status;  //TODO: toggle state for next loop 
+        gpio_set_level(LED_PIN, led_status);  //TODO: Set LED pin high or low based on led_status flag;
+        led_status = !led_status;  //TODO: toggle state for next loop 
         
         printf("LED Cycle %s @ %lu\n", led_status ? "ON" : "OFF", currentTime);
-        vTaskDelay(pdMS_TO_TICKS(250)); // Delay for 500 ms using MS to Ticks Function vs alternative which is MS / ticks per ms
+        vTaskDelay(pdMS_TO_TICKS(500)); // Delay for 500 ms using MS to Ticks Function vs alternative which is MS / ticks per ms
        
     
     }
@@ -76,8 +81,8 @@ void sensor_task(void *pvParameters) {
     float sum = 0;
 
     //TODO11a consider where AVG_WINDOW is defined, it could be here, or global value 
-    int AVG_WINDOW = 10;
-    int SENSOR_THRESHOLD = 500;
+    // int AVG_WINDOW = 10;
+    // int SENSOR_THRESHOLD = 500;
 
     //See TODO 99
     // Pre-fill the readings array with an initial sample to avoid startup anomaly
@@ -132,16 +137,20 @@ void app_main() {
     gpio_reset_pin(LED_PIN);
     gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
     // TODO4 : Initialize LDR PIN as INPUT [2 lines mirroring those above]
+    gpio_reset_pin(LDR_PIN);
+    gpio_set_direction(LDR_PIN, GPIO_MODE_INPUT);
  
 
     // TODO5 : Set ADC1's resolution by calling:
     // function adc1_config_width(...) 
     // with parameter ADC_WIDTH_BIT_12
+    adc1_config_width(ADC_WIDTH_BIT_12);
 
 
     // TODO6: Set the the input channel to 11 DB Attenuation using
     // function adc1_config_channel_atten(...,...) 
     // with parameters LDR_ADC_CHANNEL and ADC_ATTEN_DB_11
+    adc1_config_channel_atten(LDR_ADC_CHANNEL, ADC_ATTEN_DB_11);
 
 
     // Instantiate/ Create tasks: 
@@ -167,8 +176,11 @@ void app_main() {
     // . pointer referencing this created task [optional] = NULL
     // . core [0,1] to pin task too 
     // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/freertos_additions.html#_CPPv423xTaskCreatePinnedToCore14TaskFunction_tPCKcK8uint32_tPCv11UBaseType_tPC12TaskHandle_tK10BaseType_t
-    xTaskCreate(led_task, "LED", 2048, NULL, 1, NULL);
-    xTaskCreate(print_status_task, "STATUS", 2048, NULL, 1, NULL);
+    
+    //xTaskCreate(led_task, "LED", 2048, NULL, 1, NULL);
+    //xTaskCreate(print_status_task, "STATUS", 2048, NULL, 1, NULL);
+    xTaskCreatePinnedToCore(led_task, "LED", 2048, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(print_status_task, "STATUS", 2048, NULL, 1, NULL, 1);
 
     // TODO8: Make sure everything still works as expected before moving on to TODO9 (above).
 
